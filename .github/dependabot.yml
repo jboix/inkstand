@@ -1,0 +1,43 @@
+version: 2
+updates:
+  # --- GitHub Actions ---
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      action-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # --- NPM ---
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      node-dependencies:
+        patterns: [ "*" ]
+        update-types: [ "minor", "patch" ]
+    ignore:
+      # @types/node majors track the Node major (.nvmrc); bump it only when
+      # the supported runtime floor moves.
+      - dependency-name: "@types/node"
+        update-types: [ "version-update:semver-major" ]
+      # TypeScript 7 is the native compiler. Staying on 6.x until it is stable
+      # enough for the other projects that share this toolchain; the devDependency
+      # range is capped to match.
+      - dependency-name: "typescript"
+        update-types: [ "version-update:semver-major" ]
+      # ink and react are peer dependencies with a wide supported range. The
+      # dev versions pin what the examples are developed against, so a major
+      # is a deliberate change to the peer range, not an automatic bump.
+      - dependency-name: "ink"
+        update-types: [ "version-update:semver-major" ]
+      - dependency-name: "react"
+        update-types: [ "version-update:semver-major" ]
+      - dependency-name: "@types/react"
+        update-types: [ "version-update:semver-major" ]
