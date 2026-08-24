@@ -3,6 +3,7 @@
 import { Box, type Key, Text, useInput } from 'ink';
 import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
+import { listWindow } from '../machines/list-window.js';
 import type { CommandInfo } from '../machines/router.js';
 
 /** One command list. */
@@ -15,6 +16,11 @@ export interface CommandListProps {
   focused?: boolean;
   /** The Ink color of the highlighted row. Cyan when omitted. */
   highlightColor?: string;
+  /**
+   * The rows shown at once; every row when omitted. The window follows the
+   * highlight, and one line above and below counts the hidden rows.
+   */
+  maxRows?: number;
   /** Called with the highlighted command on enter, while focused. */
   onPick?: (command: CommandInfo) => void;
   /** Called when a keystroke moves the focus out of the list. */
@@ -46,25 +52,89 @@ export function CommandList(props: CommandListProps): ReactElement | null {
   if (props.commands.length === 0) {
     return null;
   }
+  return (
+    <Rows
+      color={props.highlightColor ?? 'cyan'}
+      commands={props.commands}
+      dim={props.dim === true}
+      focused={focused}
+      highlight={clamped}
+      maxRows={props.maxRows}
+    />
+  );
+}
+
+/**
+ * Renders the visible window of the command rows.
+ *
+ * @param props - The component props.
+ * @param props.commands - The commands to list.
+ * @param props.focused - Whether the list has the focus.
+ * @param props.highlight - The highlighted index.
+ * @param props.dim - Whether the unhighlighted rows dim.
+ * @param props.color - The Ink color of the highlighted row.
+ * @param props.maxRows - The rows shown at once; every row when omitted.
+ * @returns The rows element.
+ */
+function Rows(props: {
+  commands: CommandInfo[];
+  focused: boolean;
+  highlight: number;
+  dim: boolean;
+  color: string;
+  maxRows?: number;
+}): ReactElement {
   const width =
     Math.max(...props.commands.map((command) => command.name.length)) + 2;
+  const kept = props.focused ? props.highlight : 0;
+  const window = listWindow(props.commands.length, kept, props.maxRows);
   return (
     <Box flexDirection="column" paddingX={1}>
-      {props.commands.map((command, index) => (
-        <Text
-          color={
-            focused && index === clamped
-              ? (props.highlightColor ?? 'cyan')
-              : undefined
-          }
-          dimColor={props.dim === true && !(focused && index === clamped)}
+      {window.above > 0 && <Text dimColor>… {window.above} more above</Text>}
+      {props.commands.slice(window.start, window.end).map((command, offset) => (
+        <CommandRow
+          color={props.color}
+          command={command}
+          dim={props.dim}
+          focused={props.focused}
           key={command.name}
-        >
-          {focused ? marker(index, clamped) : ''}
-          {command.name.padEnd(width)} {command.description}
-        </Text>
+          marked={props.focused && window.start + offset === props.highlight}
+          width={width}
+        />
       ))}
+      {window.below > 0 && <Text dimColor>… {window.below} more below</Text>}
     </Box>
+  );
+}
+
+/**
+ * Renders one command row.
+ *
+ * @param props - The component props.
+ * @param props.command - The command of the row.
+ * @param props.marked - Whether the row is the highlighted one.
+ * @param props.focused - Whether the list has the focus.
+ * @param props.dim - Whether the unhighlighted rows dim.
+ * @param props.color - The Ink color of the highlighted row.
+ * @param props.width - The width the command names are padded to.
+ * @returns The row element.
+ */
+function CommandRow(props: {
+  command: CommandInfo;
+  marked: boolean;
+  focused: boolean;
+  dim: boolean;
+  color: string;
+  width: number;
+}): ReactElement {
+  return (
+    <Text
+      color={props.marked ? props.color : undefined}
+      dimColor={props.dim && !props.marked}
+    >
+      {props.focused ? marker(props.marked) : ''}
+      {props.command.name.padEnd(props.width)} {props.command.description}
+    </Text>
   );
 }
 
@@ -103,10 +173,9 @@ function handleKey(
 /**
  * Builds the marker column of one row.
  *
- * @param index - The row index.
- * @param highlight - The highlighted index.
+ * @param marked - Whether the row is the highlighted one.
  * @returns The marker, or two spaces.
  */
-function marker(index: number, highlight: number): string {
-  return index === highlight ? '❯ ' : '  ';
+function marker(marked: boolean): string {
+  return marked ? '❯ ' : '  ';
 }

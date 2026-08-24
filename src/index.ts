@@ -11,6 +11,8 @@ export type { Open, ScreenRender } from './hooks/use-screen-slot.js';
 export { useScreenSlot } from './hooks/use-screen-slot.js';
 export { useScrollback } from './hooks/use-scrollback.js';
 export { LineEditor } from './machines/line-editor.js';
+export type { ListWindow } from './machines/list-window.js';
+export { listWindow } from './machines/list-window.js';
 export type { Command, CommandInfo, Match, Router } from './machines/router.js';
 export { createRouter } from './machines/router.js';
 export type { ClipboardIo, ClipboardOutcome } from './system/clipboard.js';

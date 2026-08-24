@@ -77,6 +77,10 @@ included, so the flag follows the user out.
 The highlighted row is cyan. Pass `highlightColor` for a different one; `Select` and
 `MultiSelect` take the same prop.
 
+A long command list fills the screen. Pass `maxRows` to cap the visible rows: the window
+follows the highlight, and one dim line above and below counts the hidden rows. The
+window math is `listWindow(count, row, maxRows)`, exported for lists of your own.
+
 ## The status bar
 
 With two input modes, the user should see which one is active.
