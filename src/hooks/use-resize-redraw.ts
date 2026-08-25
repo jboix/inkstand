@@ -1,4 +1,4 @@
-// Optional glue: repaint when the terminal is resized.
+// Repaint when the terminal is resized.
 
 import { useStdout } from 'ink';
 import { useEffect } from 'react';

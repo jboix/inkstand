@@ -1,4 +1,4 @@
-// Optional glue: useState around the active screen, opened as a promise.
+// The active screen, opened as a promise.
 
 import type { ReactNode } from 'react';
 import { useCallback, useState } from 'react';

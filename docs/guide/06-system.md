@@ -1,7 +1,7 @@
 # 6. The system
 
 Two features leave the process: copying a result to the clipboard, and editing a text in
-the user's editor. In this final step we will add both.
+the user's editor. In this step we will add both.
 
 ## The clipboard
 
@@ -88,3 +88,8 @@ The application is complete: a prompt with history and completion, commands, scr
 folded documents, output blocks, and the system handovers.
 [`examples/demo.tsx`](../../examples/demo.tsx) is this application, one section per step;
 run it with `npm run demo` in a real terminal.
+
+## Next
+
+[Step 7, Actions](07-actions.md) gathers the keys the application answers to into one bar
+under the prompt.

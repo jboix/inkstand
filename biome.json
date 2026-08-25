@@ -61,7 +61,7 @@
   },
   "overrides": [
     {
-      "includes": ["**/*.test.*"],
+      "includes": ["examples/**", "**/*.test.*"],
       "linter": {
         "rules": {
           "complexity": {

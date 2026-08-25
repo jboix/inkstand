@@ -1,4 +1,4 @@
-// Optional glue: clear the terminal and repaint the scrollback.
+// Clear the terminal and repaint the scrollback.
 
 import { useStdout } from 'ink';
 import { useCallback, useState } from 'react';

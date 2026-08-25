@@ -1,6 +1,17 @@
 // The inkstand demo: the application built in the tutorial (docs/guide).
+// `npm run demo` prints it into the terminal. `npm run demo:fullscreen` gives
+// the same application the whole screen.
 
-import { Box, type Key, render, Text, useApp, useInput } from 'ink';
+import {
+  Box,
+  type Key,
+  render,
+  Text,
+  useApp,
+  useInput,
+  useStdout,
+  useWindowSize,
+} from 'ink';
 import type { ReactElement, ReactNode } from 'react';
 import { createContext, useContext, useState } from 'react';
 import {
@@ -8,32 +19,39 @@ import {
   type CommandInfo,
   CommandList,
   copyToClipboard,
+  createMouseInput,
   createRouter,
   DiffView,
   DocBlock,
   diffLines,
   type EditorResult,
   editText,
-  Header,
-  type LineEditor as LineEditorType,
+  type KeyAction,
+  KeyBar,
   MultiSelect,
   Notice,
   type NoticeProps,
   noticeText,
   type Open,
-  type OutputItem,
+  Pane,
   Prompt,
   Scrollback,
   Select,
   StatusBar,
   type StatusSegment,
+  suspendWithoutMouse,
   Table,
   TextPrompt,
+  Transcript,
+  Tree,
+  type TreeNode,
+  TreeView,
   useLineEditor,
   useRedraw,
   useResizeRedraw,
   useScreenSlot,
   useScrollback,
+  useTranscript,
 } from '../src/index.js';
 
 // Step 1 (01-bootstrap.md): the context, the commands, and the router.
@@ -63,6 +81,11 @@ const commands: Command<Ctx>[] = [
     name: '/rm',
     description: 'Delete fruits from a selection',
     run: (ctx) => runRm(ctx),
+  },
+  {
+    name: '/open',
+    description: 'Pick a document from the library',
+    run: (ctx) => runOpen(ctx),
   },
   {
     name: '/show',
@@ -127,6 +150,15 @@ function submit(line: string, ctx: Ctx): void {
 
 // Step 2 (02-completion.md): the suggestion list and the status bar.
 
+const BANNER = (
+  <Box flexDirection="column">
+    <Text bold color="cyan">
+      demo v0.1.0
+    </Text>
+    <Text dimColor>a demo on inkstand</Text>
+  </Box>
+);
+
 const SEGMENTS: StatusSegment[] = [
   { text: 'demo', color: 'cyan' },
   { text: 'inkstand 0.1.0', dim: true },
@@ -139,22 +171,25 @@ function PromptArea(props: {
   focused: boolean;
   onPick: (command: CommandInfo) => void;
   onBlur: () => void;
+  children?: ReactNode;
 }): ReactElement {
   return (
     <Box flexDirection="column">
-      <Prompt cursor={props.cursor} value={props.value} />
       <CommandList
         commands={props.hits}
         dim
         focused={props.focused}
+        maxRows={5}
         onBlur={props.onBlur}
         onPick={props.onPick}
       />
+      {props.children}
+      <Prompt cursor={props.cursor} value={props.value} />
     </Box>
   );
 }
 
-// Step 3 (03-screens.md): the login and removal screens.
+// Step 3 (03-screens.md): the login, the removal, and the document tree.
 
 async function runLogin(ctx: Ctx): Promise<void> {
   const user = await ctx.open<string>((done, cancel) => (
@@ -253,6 +288,63 @@ function ConfirmDelete(
   );
 }
 
+const LIBRARY: TreeNode[] = [
+  { id: 'config.json', label: 'config.json' },
+  { id: 'notes', label: 'notes' },
+  { id: 'notes/release.md', parentId: 'notes', label: 'release.md' },
+  { id: 'notes/todo.md', parentId: 'notes', label: 'todo.md' },
+];
+
+const DOCUMENTS: Record<string, string> = {
+  'config.json': SAMPLE,
+  'notes/release.md':
+    '# Release 0.2.0\n\n- The line editor keeps a history.\n' +
+    '- Documents fold on ctrl+o.\n- The clipboard falls back to OSC 52.\n',
+  'notes/todo.md':
+    '# Todo\n\n- Name the panes.\n- Window the suggestion list.\n' +
+    '- Copy the diff as plain text.\n',
+};
+
+async function runOpen(ctx: Ctx): Promise<void> {
+  const id = await ctx.open<string>((done, cancel) => (
+    <PickDocument onCancel={cancel} onPick={done} />
+  ));
+  if (id === undefined) {
+    ctx.push(<Text dimColor>Cancelled.</Text>);
+    return;
+  }
+  ctx.push(<Doc text={DOCUMENTS[id] ?? ''} title={id} />);
+}
+
+function PickDocument(props: {
+  onPick: (id: string) => void;
+  onCancel: () => void;
+}): ReactElement {
+  const [tree, setTree] = useState(() => Tree.create(LIBRARY, ['notes']));
+  const [highlight, setHighlight] = useState(0);
+  useInput((input, key) => {
+    if (key.escape || (key.ctrl && input === 'c')) {
+      props.onCancel();
+    }
+  });
+  return (
+    <Pane detail="esc cancels" focused title="Open a document">
+      <TreeView
+        highlight={highlight}
+        onCollapse={(id) => setTree(tree.collapse(id))}
+        onExpand={(id) => setTree(tree.expand(id))}
+        onHighlight={setHighlight}
+        onOpen={(id) => {
+          if (DOCUMENTS[id] !== undefined) {
+            props.onPick(id);
+          }
+        }}
+        rows={tree.rows}
+      />
+    </Pane>
+  );
+}
+
 // Step 4 (04-documents.md): the fold flag and the document block.
 
 const DocFold = createContext(false);
@@ -323,96 +415,188 @@ function runCopy(ctx: Ctx): void {
   );
 }
 
-// The application, assembled across the steps.
+// Step 7 (07-actions.md): the actions and the key bar.
 
-function App(): ReactElement {
-  const demo = useDemo();
-  useInput((input, key) => route(input, key, demo), {
-    isActive: demo.screen === undefined,
-  });
+const ACTIONS: KeyAction[] = [
+  { key: '^g', label: 'help' },
+  { key: '^o', label: 'fold' },
+  { key: '^d', label: 'quit' },
+];
+
+function run(action: KeyAction, app: Demo): void {
+  if (action.key === '^g') {
+    app.push(<CommandList commands={commands} />);
+    return;
+  }
+  if (action.key === '^o') {
+    app.setExpanded(!app.expanded);
+    app.redraw();
+    return;
+  }
+  app.exit();
+}
+
+function route(input: string, key: Key, app: Demo): void {
+  const action = key.ctrl
+    ? ACTIONS.find((candidate) => candidate.key === `^${input}`)
+    : undefined;
+  if (action !== undefined) {
+    run(action, app);
+    return;
+  }
+  if (key.tab && key.shift) {
+    app.setKeys(true);
+    return;
+  }
+  if (key.tab && !app.suggesting) {
+    app.setSuggesting(app.hits.length > 0);
+  }
+}
+
+function Actions(props: { app: Demo }): ReactElement {
+  const { app } = props;
   return (
-    <DocFold.Provider value={demo.expanded}>
-      <Box flexDirection="column" paddingX={1}>
-        <Scrollback generation={demo.generation} items={demo.items} />
-        <Box flexDirection="column" marginTop={1}>
-          {demo.screen ?? (
-            <PromptArea
-              cursor={demo.editor.cursor}
-              focused={demo.focused}
-              hits={demo.hits}
-              onBlur={() => demo.setFocused(false)}
-              onPick={(command) =>
-                demo.setEditor(demo.editor.withValue(`${command.name} `))
-              }
-              value={demo.editor.value}
-            />
-          )}
-          <StatusBar
-            right={
-              <Text dimColor>
-                {demo.focused ? 'enter completes' : 'tab selects a command'}
-              </Text>
-            }
-            segments={SEGMENTS}
-          />
-        </Box>
-      </Box>
-    </DocFold.Provider>
+    <KeyBar
+      actions={ACTIONS}
+      focused={app.keys}
+      onBlur={() => app.setKeys(false)}
+      onPick={(action) => run(action, app)}
+    />
   );
 }
 
-function useDemo(): Routing & {
-  items: OutputItem[];
-  generation: number;
-  screen?: ReactNode;
-} {
-  const { exit, suspendTerminal } = useApp();
-  const { items, push } = useScrollback(
-    <Header name="demo" version="0.1.0" tagline="a demo on inkstand" />,
+// Step 8 (08-fullscreen.md): the alternate screen and the transcript.
+
+const fullscreen = process.argv.includes('--fullscreen');
+
+const mouse = fullscreen ? createMouseInput(process.stdin) : undefined;
+
+function Fullscreen(props: { app: Demo }): ReactElement {
+  const { app } = props;
+  const { rows, columns } = useWindowSize();
+  return (
+    <Box flexDirection="column" height={rows} paddingX={1} width={columns}>
+      <Transcript
+        {...app.transcript}
+        hint="ctrl+end returns to the end"
+        items={app.items}
+      />
+      <Body app={app} />
+    </Box>
   );
+}
+
+// The application, assembled across the steps.
+
+type Demo = ReturnType<typeof useDemo>;
+
+function useDemo() {
+  const { exit, suspendTerminal } = useApp();
+  const { write } = useStdout();
+  const { items, push } = useScrollback(BANNER);
   const { generation, redraw } = useRedraw();
   const { screen, open } = useScreenSlot();
   const [expanded, setExpanded] = useState(false);
-  const [focused, setFocused] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [keys, setKeys] = useState(false);
+  const transcript = useTranscript({
+    mouse,
+    isActive: fullscreen && screen === undefined,
+  });
   useResizeRedraw(redraw);
   const edit = (body: string): Promise<EditorResult> =>
     editText(
       { prefix: 'demo', slug: 'note', body, extension: 'md' },
-      { suspend: suspendTerminal, redraw },
+      {
+        redraw,
+        suspend:
+          mouse === undefined
+            ? suspendTerminal
+            : suspendWithoutMouse(suspendTerminal, write),
+      },
     );
   const { editor, setEditor } = useLineEditor(
     {
       onInterrupt: exit,
       onSubmit: (line) => submit(line, { push, open, edit, exit }),
     },
-    { isActive: screen === undefined && !focused },
+    { isActive: screen === undefined && !suggesting && !keys },
   );
   const hits = editor.value === '' ? [] : router.suggest(editor.value);
-  const fold = { expanded, setExpanded, redraw };
-  const list = { focused, setFocused, hits };
-  return { items, generation, screen, editor, setEditor, ...fold, ...list };
+  return {
+    items,
+    generation,
+    push,
+    screen,
+    editor,
+    setEditor,
+    hits,
+    expanded,
+    setExpanded,
+    suggesting,
+    setSuggesting,
+    keys,
+    setKeys,
+    transcript,
+    redraw,
+    exit,
+  };
 }
 
-interface Routing {
-  expanded: boolean;
-  setExpanded: (value: boolean) => void;
-  redraw: () => void;
-  focused: boolean;
-  setFocused: (value: boolean) => void;
-  hits: Command<Ctx>[];
-  setEditor: (editor: LineEditorType) => void;
-  editor: LineEditorType;
+function App(): ReactElement {
+  const app = useDemo();
+  useInput((input, key) => route(input, key, app), {
+    isActive: app.screen === undefined && !app.keys,
+  });
+  return (
+    <DocFold.Provider value={app.expanded}>
+      {fullscreen ? <Fullscreen app={app} /> : <Shell app={app} />}
+    </DocFold.Provider>
+  );
 }
 
-function route(input: string, key: Key, deps: Routing): void {
-  if (key.ctrl && input === 'o') {
-    deps.setExpanded(!deps.expanded);
-    deps.redraw();
-    return;
-  }
-  if (key.tab && !deps.focused) {
-    deps.setFocused(deps.hits.length > 0);
-  }
+function Shell(props: { app: Demo }): ReactElement {
+  const { app } = props;
+  return (
+    <Box flexDirection="column" paddingX={1}>
+      <Scrollback generation={app.generation} items={app.items} />
+      <Body app={app} />
+    </Box>
+  );
 }
 
-render(<App />, { exitOnCtrlC: false });
+function Body(props: { app: Demo }): ReactElement {
+  const { app } = props;
+  return (
+    <Box flexDirection="column" flexShrink={0} marginTop={1}>
+      {app.screen ?? (
+        <PromptArea
+          cursor={app.editor.cursor}
+          focused={app.suggesting}
+          hits={app.hits}
+          onBlur={() => app.setSuggesting(false)}
+          onPick={(command) =>
+            app.setEditor(app.editor.withValue(`${command.name} `))
+          }
+          value={app.editor.value}
+        >
+          <Actions app={app} />
+        </PromptArea>
+      )}
+      <StatusBar
+        right={
+          <Text dimColor>
+            {app.suggesting ? 'Select with Enter' : 'Select a command with tab'}
+          </Text>
+        }
+        segments={SEGMENTS}
+      />
+    </Box>
+  );
+}
+
+render(<App />, {
+  alternateScreen: fullscreen,
+  exitOnCtrlC: false,
+  stdin: mouse?.stdin ?? process.stdin,
+});

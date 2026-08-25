@@ -55,6 +55,7 @@
     "test:coverage": "mkdir -p coverage && node --import tsx --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \"src/**/*.test.ts\"",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "demo": "tsx examples/demo.tsx",
+    "demo:fullscreen": "tsx examples/demo.tsx --fullscreen",
     "verify": "npm run lint && npm run arch && npm run knip && npm run typecheck && npm test && npm run build",
     "prepare": "husky",
     "prepack": "npm run build"

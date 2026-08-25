@@ -1,4 +1,4 @@
-// Optional glue: useState around the scrollback array.
+// The scrollback array.
 
 import type { ReactNode } from 'react';
 import { useCallback, useState } from 'react';

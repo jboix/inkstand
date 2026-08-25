@@ -102,6 +102,94 @@ confirmation is a `Select<boolean>`.
 the highlighted item, `a` toggles all, enter reports the selected values through
 `onSubmit`. It starts with nothing selected.
 
+## The pane
+
+[`Pane`](../../src/views/pane.tsx) is a bordered box with a title on the first row.
+`detail` puts a short text at the right end of that row, `focusColor` picks the color of
+the border and the title, and `focused` applies it:
+
+```tsx
+import { Pane } from 'inkstand';
+
+<Pane detail="esc cancels" focused title="Open a document">
+  {/* the content */}
+</Pane>
+```
+
+`width`, `height`, and `grow` size the pane. The content sizes it when they are omitted.
+
+## Choosing from a tree
+
+[`Tree`](../../src/machines/tree.ts) holds a hierarchy: nodes with a `parentId`, and the
+ids that are expanded. `rows` lists the visible rows depth first, each with its depth and
+fold state, and `expand` and `collapse` return the next tree.
+
+[`TreeView`](../../src/views/tree-view.tsx) renders those rows and reports each keystroke
+through a callback. Up and down move the highlight, right expands a node, left collapses
+it or moves to the parent, space folds and unfolds, and enter opens a row. The application
+holds the tree and the highlight:
+
+```tsx
+import { Pane, Tree, type TreeNode, TreeView } from 'inkstand';
+
+const LIBRARY: TreeNode[] = [
+  { id: 'config.json', label: 'config.json' },
+  { id: 'notes', label: 'notes' },
+  { id: 'notes/release.md', parentId: 'notes', label: 'release.md' },
+  { id: 'notes/todo.md', parentId: 'notes', label: 'todo.md' },
+];
+
+function PickDocument(props: {
+  onPick: (id: string) => void;
+  onCancel: () => void;
+}): ReactElement {
+  const [tree, setTree] = useState(() => Tree.create(LIBRARY, ['notes']));
+  const [highlight, setHighlight] = useState(0);
+  useInput((input, key) => {
+    if (key.escape || (key.ctrl && input === 'c')) {
+      props.onCancel();
+    }
+  });
+  return (
+    <Pane detail="esc cancels" focused title="Open a document">
+      <TreeView
+        highlight={highlight}
+        onCollapse={(id) => setTree(tree.collapse(id))}
+        onExpand={(id) => setTree(tree.expand(id))}
+        onHighlight={setHighlight}
+        onOpen={props.onPick}
+        rows={tree.rows}
+      />
+    </Pane>
+  );
+}
+```
+
+`Tree.create(nodes, expanded)` takes the ids to start expanded, and `tree.rows[highlight]`
+is the highlighted node. `maxRows` caps the visible rows, with one dim line above and
+below counting the hidden ones. `glyphs` replaces the `▸` and `▾` before the labels, for
+example with folder icons.
+
+[`treeAction`](../../src/machines/tree.ts) maps one keystroke to the action it asks for,
+for a tree you render yourself.
+
+The command opens the screen and reports the picked id:
+
+```tsx
+async function runOpen(ctx: Ctx): Promise<void> {
+  const id = await ctx.open<string>((done, cancel) => (
+    <PickDocument onCancel={cancel} onPick={done} />
+  ));
+  ctx.push(
+    id === undefined ? (
+      <Text dimColor>Cancelled.</Text>
+    ) : (
+      <Text>Opened {id}.</Text>
+    ),
+  );
+}
+```
+
 ## A screen with phases
 
 A flow like delete is one screen with two phases: choose the items, then confirm. The

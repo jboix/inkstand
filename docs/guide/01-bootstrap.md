@@ -31,39 +31,19 @@ render(<App />);
 
 Everything we build in this tutorial goes inside this column.
 
-## The header
-
-[`Header`](../../src/views/header.tsx) renders the application banner: the name, the
-version, and an optional tagline.
-
-```tsx
-import { Header } from 'inkstand';
-
-function App(): ReactElement {
-  return (
-    <Box flexDirection="column" paddingX={1}>
-      <Header name="demo" version="0.1.0" tagline="built on inkstand" />
-    </Box>
-  );
-}
-```
-
-`Header` is a view, and every inkstand view works the same way: props in, JSX out. The
-view holds nothing itself, so what appears on screen is exactly what your component passed
-in.
-
 ## The scrollback
 
 An interactive application prints blocks of output that pile up above the input, like a
 shell session. That area is the scrollback, and it is a plain array in your component:
 
 ```tsx
-import { Header, Scrollback, useScrollback } from 'inkstand';
+import { Text } from 'ink';
+import { Scrollback, useScrollback } from 'inkstand';
+
+const BANNER = <Text bold color="cyan">demo v0.1.0</Text>;
 
 function App(): ReactElement {
-  const { items, push } = useScrollback(
-    <Header name="demo" version="0.1.0" tagline="built on inkstand" />,
-  );
+  const { items, push } = useScrollback(BANNER);
   return (
     <Box flexDirection="column" paddingX={1}>
       <Scrollback items={items} />
@@ -74,7 +54,8 @@ function App(): ReactElement {
 
 [`useScrollback`](../../src/hooks/use-scrollback.ts) holds the array and returns `push`,
 which appends a block. A block is any
-JSX. The first argument seeds the array, so the header is now the first printed block.
+JSX. The first argument seeds the array, so the banner is now the first printed block.
+`Scrollback` is a view, and every inkstand view works the same way: props in, JSX out.
 
 [`Scrollback`](../../src/views/scrollback.tsx) renders the array through Ink's `Static`. `Static` prints each block once and
 leaves it in the terminal's own scrollback, above everything Ink keeps repainting. This
@@ -94,9 +75,7 @@ import { Prompt, useLineEditor } from 'inkstand';
 
 function App(): ReactElement {
   const { exit } = useApp();
-  const { items, push } = useScrollback(
-    <Header name="demo" version="0.1.0" tagline="built on inkstand" />,
-  );
+  const { items, push } = useScrollback(BANNER);
   const { editor } = useLineEditor({
     onInterrupt: exit,
     onSubmit: (line) => push(<Text dimColor>{'> '}{line}</Text>),
@@ -199,9 +178,7 @@ function submit(line: string, ctx: Ctx): void {
 
 function App(): ReactElement {
   const { exit } = useApp();
-  const { items, push } = useScrollback(
-    <Header name="demo" version="0.1.0" tagline="built on inkstand" />,
-  );
+  const { items, push } = useScrollback(BANNER);
   const { editor } = useLineEditor({
     onInterrupt: exit,
     onSubmit: (line) => submit(line, { push, exit }),

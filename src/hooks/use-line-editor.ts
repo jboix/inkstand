@@ -1,4 +1,4 @@
-// Optional glue: useState around the LineEditor plus the keystroke wiring.
+// The LineEditor state and its keystroke wiring.
 
 import { type Key, useInput } from 'ink';
 import { useState } from 'react';

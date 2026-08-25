@@ -35,7 +35,7 @@ src/
   text/       diffLines, the line diff behind DiffView.
   system/     the handovers to the host: the clipboard and the editor.
   views/      controlled views: props in, JSX out.
-  hooks/      optional glue: useState around a machine or an array.
+  hooks/      React state around a machine, an array, or a terminal mode.
   index.ts    the facade. Re-exports every part.
 examples/     demo.tsx, the application built in the tutorial.
 docs/guide/   the tutorial.
@@ -108,6 +108,8 @@ Documentation, comments, commit messages, and user-facing strings use direct lan
   headers are one line; no explanatory paragraphs.
 - `examples/demo.tsx` carries no TSDoc. Its comments are the step section markers, one per
   tutorial chapter.
+- `examples/` is exempt from the Biome size and complexity rules. The demo reads top to
+  bottom in one file.
 - Describe what the thing is and does. Do not define it by contrast with something it is
   not. No "X, not Y". No "unlike Z". No "rather than". If a reader might confuse it with
   something else do not write it.
