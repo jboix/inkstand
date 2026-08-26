@@ -33,6 +33,16 @@ export function DiffView(props: { lines: DiffLine[] }): ReactElement {
 }
 
 /**
+ * Formats the diff lines as plain text, each line behind its marker.
+ *
+ * @param lines - The lines, from `diffLines` or an application summary.
+ * @returns The lines, joined by newlines.
+ */
+export function diffViewText(lines: DiffLine[]): string {
+  return lines.map((line) => `${line.sign} ${line.text}`).join('\n');
+}
+
+/**
  * Gives each line a stable identity within the render. Diff lines are
  * positional and may repeat, so the position is part of the identity.
  *

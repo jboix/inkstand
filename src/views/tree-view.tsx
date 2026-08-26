@@ -91,11 +91,6 @@ function Row(props: {
   glyphs: TreeGlyphs;
 }): ReactElement {
   const { row, glyphs } = props;
-  const glyph = row.hasChildren
-    ? row.expanded
-      ? glyphs.expanded
-      : glyphs.collapsed
-    : glyphs.leaf;
   return (
     <Text
       bold={props.highlighted}
@@ -105,10 +100,43 @@ function Row(props: {
     >
       {props.highlighted ? '❯ ' : '  '}
       {'  '.repeat(row.depth)}
-      {glyph}
+      {glyphFor(row, glyphs)}
       {row.label}
     </Text>
   );
+}
+
+/**
+ * Formats the rows as plain text: each label indented by its depth, behind
+ * the glyph of its fold state.
+ *
+ * @param rows - The visible rows, from `Tree.rows`.
+ * @param glyphs - The glyphs before a label. Chevrons when omitted.
+ * @returns The lines, joined by newlines.
+ */
+export function treeViewText(
+  rows: readonly TreeRow[],
+  glyphs: TreeGlyphs = CHEVRONS,
+): string {
+  return rows
+    .map(
+      (row) => `${'  '.repeat(row.depth)}${glyphFor(row, glyphs)}${row.label}`,
+    )
+    .join('\n');
+}
+
+/**
+ * Picks the glyph of a row from its fold state.
+ *
+ * @param row - The row.
+ * @param glyphs - The glyphs per fold state.
+ * @returns The glyph before the label.
+ */
+function glyphFor(row: TreeRow, glyphs: TreeGlyphs): string {
+  if (!row.hasChildren) {
+    return glyphs.leaf;
+  }
+  return row.expanded ? glyphs.expanded : glyphs.collapsed;
 }
 
 /**

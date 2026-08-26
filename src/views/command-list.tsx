@@ -84,8 +84,7 @@ function Rows(props: {
   color: string;
   maxRows?: number;
 }): ReactElement {
-  const width =
-    Math.max(...props.commands.map((command) => command.name.length)) + 2;
+  const width = nameWidth(props.commands);
   const kept = props.focused ? props.highlight : 0;
   const window = listWindow(props.commands.length, kept, props.maxRows);
   return (
@@ -105,6 +104,30 @@ function Rows(props: {
       {window.below > 0 && <Text dimColor>… {window.below} more below</Text>}
     </Box>
   );
+}
+
+/**
+ * Formats the commands as plain text, one line per command, the names padded
+ * to one width.
+ *
+ * @param commands - The commands to list, in display order.
+ * @returns The lines, joined by newlines.
+ */
+export function commandListText(commands: CommandInfo[]): string {
+  const width = nameWidth(commands);
+  return commands
+    .map((command) => `${command.name.padEnd(width)} ${command.description}`)
+    .join('\n');
+}
+
+/**
+ * Measures the name column: the longest name plus the marker width.
+ *
+ * @param commands - The commands to list.
+ * @returns The width the names are padded to.
+ */
+function nameWidth(commands: CommandInfo[]): number {
+  return Math.max(0, ...commands.map((command) => command.name.length)) + 2;
 }
 
 /**
